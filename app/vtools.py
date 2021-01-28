@@ -2,7 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 import cv2
-import pickle
+import h5py
 
 import streamlit as st
 
@@ -32,7 +32,6 @@ def preprocess_data(video_file, detects_file, pbar=None):
     frame_sets = {track_id: set(
         tracks[track_id]['frame_id'].values) for track_id in track_ids}
 
-    result = {track_id: [] for track_id in track_ids}
     match_name = video_file[video_file.rfind(
         "\\") + 1: video_file.rfind(".mp4")]
     os.makedirs(os.path.join(SAVE_DIR, match_name), exist_ok=True)
@@ -41,30 +40,28 @@ def preprocess_data(video_file, detects_file, pbar=None):
     cap = cv2.VideoCapture(video_file)
     assert cap.isOpened(), "Can't open video"
     frame_no, last_frame = 0, int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    tracks_images = {track_id: [] for track_id in track_ids}
     while True:
-        print(frame_no)
         ret, frame = cap.read()
         for track_id in track_ids:
             if frame_no in frame_sets[track_id]:
                 bbox = bbox_from_df(tracks[track_id], frame_no)
                 bbox_img = get_bbox(frame, bbox)
-                save_filename = f"track_{str(track_id).rjust(2, '0')}_{str(frame_no).rjust(2, '0')}.png"
-                save_path = os.path.join(SAVE_DIR, match_name, save_filename)
-                cv2.imwrite(save_path, bbox_img)
-                result[track_id].append(save_path)
+                tracks_images[track_id].append(cv2.resize(bbox_img, (32, 32)))
         frame_no += 1
         if pbar:
             pbar.progress(frame_no / last_frame)
         if frame_no == last_frame:
             break
 
-    with open(os.path.join(SAVE_DIR, match_name + '.pickle'), 'wb') as handle:
-        pickle.dump(result, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-
-@st.cache
-def load_image(path):
-    return cv2.imread(path)
+    file = h5py.File(f"../data/{match_name}.h5", "w")
+    for track_id in track_ids:
+        file.create_dataset(
+            str(track_id), np.shape(tracks_images[track_id]),
+            h5py.h5t.STD_U8BE,
+            data=tracks_images[track_id]
+        )
+    file.close()
 
 
 def pad(image, size=(288, 288), upsample=1, half_image=True):
