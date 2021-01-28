@@ -1,43 +1,35 @@
 import os
 import numpy as np
-import pandas as pd
 import cv2
-import pickle
-
+import h5py
 import streamlit as st
-
 import vtools as vt
 
 
 def main():
     st.set_page_config(
         page_title="Video App",
-        page_icon=":shark:"
+        page_icon=":shark:",
+        layout='wide'
     )
     st.title("This is an app for manual football video markup")
 
-    # Preprocess
-    expander = st.beta_expander(label="Preprocessing")
-    with expander:
-        video_path = choose_video()
-        detects_path = choose_detects()
-        load_bar = st.progress(0)
-        load_button = st.button("Start preprocessing video")
-        if load_button:
-            vt.preprocess_data(video_path, detects_path, pbar=load_bar)
-
-    # Load data
-    data, track_ids = load_preprocessed_data()
+    # Choose .h5 file
+    files = [name for name in os.listdir("../data") if name.endswith(".h5")]
+    data_file = st.selectbox("Choose data", options=files)
+    data_path = os.path.join("../data", data_file)
 
     # Track
+    track_ids = get_track_ids(data_path)
     track_id = choose_track(track_ids)
-    frames = data[track_id]
+    frames = load_images(track_id, data_path)
     st.text(f"There are {len(frames):5d} frames for this track id.")
 
-    # Canvas
-    expander = st.beta_expander(label="Look at the whole track")
-    image = canvas(frames, n=int(np.sqrt(len(frames))))
-    expander.image(image, output_format='PNG')
+    # Button to save canvas for given track_id
+    save_canvas_button = st.button("Save the whole track as an image to disk")
+    if save_canvas_button:
+        image = canvas(frames, n=int(np.sqrt(len(frames))))
+        cv2.imwrite("../output/current_track.png", image)
 
     # Frame
     frame_no = choose_frame_no(len(frames) - 1)
@@ -66,15 +58,19 @@ def adding_sequences(frames):
                 file.write(frames[i] + "," + str(visible_number) + "\n")
 
 
-def load_preprocessed_data(workdir="../output/preprocessed_videos"):
-    st.header("Load data")
-    pickles = [name for name in os.listdir(
-        workdir) if name.endswith(".pickle")]
-    pickle_file = st.selectbox("Choose file", options=pickles)
-    with open(os.path.join(workdir, pickle_file), 'rb') as handle:
-        data = pickle.load(handle)
-    track_ids = data.keys()
-    return data, track_ids
+def get_track_ids(data_path):
+    file = h5py.File(data_path, "r+")
+    track_ids = [int(i) for i in file.keys()]
+    file.close()
+    return track_ids
+
+
+@st.cache
+def load_images(track_id, data_path):
+    file = h5py.File(data_path, "r+")
+    images = np.array(file[str(track_id)])
+    file.close()
+    return images
 
 
 def choose_video():
@@ -116,7 +112,7 @@ def choose_frame_no(max_val):
 
 
 def show_images(frame_no, frames, N=19, show_caption=True):
-    size = 640 // N
+    size = 800 // N
     columns = st.beta_columns(N)
     for i, column in enumerate(columns):
         with column:
@@ -125,7 +121,7 @@ def show_images(frame_no, frames, N=19, show_caption=True):
             if abs_no < 0 or abs_no >= len(frames):
                 frame = np.zeros((size, size, 3))
             else:
-                frame = vt.load_image(frames[rel_no + frame_no])
+                frame = frames[rel_no + frame_no]
                 frame = cv2.resize(frame, (size, size))
             if show_caption:
                 caption = str(rel_no + frame_no) if rel_no != 0 else "↑"
@@ -134,19 +130,16 @@ def show_images(frame_no, frames, N=19, show_caption=True):
             st.image(frame[:, :, ::-1], caption=caption, output_format='PNG')
 
 
-@st.cache(max_entries=2)
 def canvas(frames, n=70, size=32):
     image = np.zeros((size*n, size*n, 3))
-    for idx, img_path in enumerate(frames):
-        img = vt.load_image(img_path)
-        img = cv2.resize(img, (size, size))
+    for idx, bbox in enumerate(frames):
+        img = bbox.copy()
         vt.write_text(img, str(idx))
         i, j = idx // n, idx % n
         image[i*size:(i+1)*size, j*size:(j+1)*size] = img
         if idx == n**2 - 1:
             break
-    # image = cv2.resize(image[:, :, ::-1] / 255., (640, 640), cv2.INTER_AREA)
-    return image[:, :, ::-1] / 255.
+    return image
 
 
 if __name__ == "__main__":
