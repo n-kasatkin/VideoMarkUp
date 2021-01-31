@@ -35,7 +35,6 @@ def preprocess_data(video_file, detects_file, pbar=None):
     match_name = video_file[video_file.rfind(
         "\\") + 1: video_file.rfind(".mp4")]
     os.makedirs(os.path.join(SAVE_DIR, match_name), exist_ok=True)
-    print(video_file, match_name)
 
     cap = cv2.VideoCapture(video_file)
     assert cap.isOpened(), "Can't open video"

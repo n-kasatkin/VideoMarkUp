@@ -40,10 +40,10 @@ def main():
     show_images(frame_no, frames, N=39, show_caption=False)
 
     # Create file with marked data
-    adding_sequences(frames)
+    adding_sequences(frames, track_id, save_filename=data_file[:-3])
 
 
-def adding_sequences(frames):
+def adding_sequences(frames, track_id, save_filename):
     columns = st.beta_columns(3)
     with columns[0]:
         visible_number = st.number_input("Visible number", min_value=-1)
@@ -53,9 +53,10 @@ def adding_sequences(frames):
         last_frame = st.number_input("Last frame", min_value=0)
     add_string_button = st.button("Add this sequence")
     if add_string_button:
-        with open("../output/final.csv", "a") as file:
+        with open(os.path.join("../output/", save_filename + ".txt"), "a+") as file:
             for i in range(first_frame, last_frame + 1):
-                file.write(frames[i] + "," + str(visible_number) + "\n")
+                file.write(str(track_id) + "," + str(i) + "," +
+                           str(visible_number) + "\n")
 
 
 def get_track_ids(data_path):
@@ -65,7 +66,6 @@ def get_track_ids(data_path):
     return track_ids
 
 
-@st.cache
 def load_images(track_id, data_path):
     file = h5py.File(data_path, "r+")
     images = np.array(file[str(track_id)])
@@ -107,7 +107,7 @@ def load_track(track_id):
 
 def choose_frame_no(max_val):
     st.header('Choose frame')
-    frame_no = st.slider('Frame_no', min_value=0, max_value=max_val)
+    frame_no = st.slider('Frame_no', min_value=0, max_value=max_val, step=10)
     return frame_no
 
 
