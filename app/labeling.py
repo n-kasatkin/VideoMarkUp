@@ -6,11 +6,11 @@ import streamlit as st
 import vtools as vt
 from albumentations.augmentations.functional import brightness_contrast_adjust, clahe
 
-from utils import config_page_and_title, get_arguments
+from utils import config_page, get_arguments, title, Stage
 
 
-def main():
-    config_page_and_title(stage="Labeling")
+def labeling():
+    title(stage=Stage.LABELING)
     args = get_arguments()
 
     # Sidebar options
@@ -183,6 +183,11 @@ def canvas(frames, n=70, size=32):
         if idx == n**2 - 1:
             break
     return image
+
+
+def main():
+    config_page()
+    labeling()
 
 
 if __name__ == "__main__":

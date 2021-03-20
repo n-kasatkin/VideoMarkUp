@@ -1,7 +1,14 @@
 import os
 from argparse import ArgumentParser
+from enum import Enum
 
 import streamlit as st
+
+
+class Stage(Enum):
+    PREPROCESSING = "Preprocessing"
+    LABELING = "Labeling"
+    POSTPROCESSING = "Postprocessing"
 
 
 @st.cache
@@ -12,15 +19,18 @@ def get_arguments():
     return parser.parse_args()
 
 
-def config_page_and_title(stage=None):
+def config_page():
     st.set_page_config(
-        page_title="Video App",
+        page_title="Jersey App",
         page_icon=":soccer:",
         layout="wide",
     )
+
+
+def title(stage=None):
     title = "Jersey Number Labeling"
     if stage is not None:
-        title += f": {stage.title()}"
+        title += f": {stage.value.title()}"
     st.title(title)
 
 

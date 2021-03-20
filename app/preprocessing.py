@@ -4,13 +4,15 @@ import vtools as vt
 from utils import (
     choose_detects,
     choose_video,
-    config_page_and_title,
-    get_arguments
+    config_page,
+    get_arguments,
+    title,
+    Stage
 )
 
 
-def main():
-    config_page_and_title(stage="preprocessing")
+def preprocessing():
+    title(stage=Stage.PREPROCESSING)
 
     # Preprocess
     args = get_arguments()
@@ -22,5 +24,10 @@ def main():
         vt.preprocess_data(video_path, detects_path, pbar=load_bar)
 
 
+def main():
+    config_page()
+    preprocessing()
+
+
 if __name__ == "__main__":
-    main()
+    preprocessing()
