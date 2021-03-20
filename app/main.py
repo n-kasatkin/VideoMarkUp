@@ -14,8 +14,9 @@ def main():
     args = get_arguments()
 
     # Sidebar options
-    data_path, track_id, frames, n_rows, images_per_row, stride, image_transforms = \
-        choose_options(args.data_dir, args.output_dir)
+    data_path, track_id, frames = choose_data_and_track(args.data_dir, args.output_dir)
+    n_rows, images_per_row, stride = choose_image_grid_params()
+    image_transforms = choose_image_transforms()
 
     # Frame
     step = (n_rows - 1) * images_per_row * stride
@@ -32,7 +33,7 @@ def main():
     adding_sequences(frames, track_id, save_filename=os.path.basename(data_path)[:-3])
 
 
-def choose_options(data_dir, output_dir):
+def choose_data_and_track(data_dir, output_dir):
     data_path = choose_data(data_dir)
     track_id = choose_track(data_path)
     frames = load_images(track_id, data_path)
@@ -42,11 +43,18 @@ def choose_options(data_dir, output_dir):
         image = canvas(frames, n=int(np.sqrt(len(frames))))
         cv2.imwrite(os.path.join(output_dir, "current_track.png"), image)
 
+    return data_path, track_id, frames
+
+
+def choose_image_grid_params():
     st.sidebar.header("Image Grid params")
     n_rows = st.sidebar.slider("Number of rows", min_value=1, max_value=10, value=5, step=1)
     images_per_row = st.sidebar.slider("Number of images per row", min_value=9, max_value=49, value=19, step=10)
     stride = st.sidebar.slider("Stride", min_value=1, max_value=25, value=5, step=1)
+    return n_rows, images_per_row, stride
 
+
+def choose_image_transforms():
     st.sidebar.header("Image transforms")
     image_transforms = {
         "brightness": st.sidebar.slider("Brightness", min_value=-1.0, max_value=1.0, value=0.0, step=0.1),
@@ -64,7 +72,7 @@ def choose_options(data_dir, output_dir):
     else:
         image_transforms["clahe"] = None
 
-    return data_path, track_id, frames, n_rows, images_per_row, stride, image_transforms
+    return image_transforms
 
 
 def choose_data(data_dir):
