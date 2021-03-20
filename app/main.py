@@ -4,43 +4,74 @@ import cv2
 import h5py
 import streamlit as st
 import vtools as vt
+from albumentations.augmentations.functional import brightness_contrast_adjust, clahe
+
+from utils import config_page_and_title, get_arguments
 
 
 def main():
-    st.set_page_config(
-        page_title="Video App",
-        page_icon=":shark:",
-        layout='wide'
-    )
-    st.title("This is an app for manual football video markup")
+    config_page_and_title(stage="Labeling")
+    args = get_arguments()
 
-    # Choose .h5 file
-    files = [name for name in os.listdir("../data") if name.endswith(".h5")]
-    data_file = st.selectbox("Choose data", options=files)
-    data_path = os.path.join("../data", data_file)
-
-    # Track
-    track_ids = get_track_ids(data_path)
-    track_id = choose_track(track_ids)
-    frames = load_images(track_id, data_path)
-    st.text(f"There are {len(frames):5d} frames for this track id.")
-
-    # Button to save canvas for given track_id
-    save_canvas_button = st.button("Save the whole track as an image to disk")
-    if save_canvas_button:
-        image = canvas(frames, n=int(np.sqrt(len(frames))))
-        cv2.imwrite("../output/current_track.png", image)
+    # Sidebar options
+    data_path, track_id, frames, n_rows, images_per_row, stride, image_transforms = \
+        choose_options(args.data_dir, args.output_dir)
 
     # Frame
-    frame_no = choose_frame_no(len(frames) - 1)
+    step = (n_rows - 1) * images_per_row * stride
+    frame_no = choose_frame_no(len(frames) - 1, step)
     st.text(f"This is {frame_no:5d} frame.")
 
     # Images
-    show_images(frame_no, frames, N=19)
-    show_images(frame_no, frames, N=39, show_caption=False)
+    for row in range(n_rows):
+        row_frame_no = frame_no + row * images_per_row * stride
+        show_images(row_frame_no, frames, N=images_per_row, stride=stride,
+                    image_transforms=image_transforms, frame_arrow=(row == 0))
 
     # Create file with marked data
-    adding_sequences(frames, track_id, save_filename=data_file[:-3])
+    adding_sequences(frames, track_id, save_filename=os.path.basename(data_path)[:-3])
+
+
+def choose_options(data_dir, output_dir):
+    data_path = choose_data(data_dir)
+    track_id = choose_track(data_path)
+    frames = load_images(track_id, data_path)
+    st.text(f"There are {len(frames):5d} frames for this track id.")
+    save_canvas_button = st.sidebar.button("Save the whole track canvas to disk")
+    if save_canvas_button:
+        image = canvas(frames, n=int(np.sqrt(len(frames))))
+        cv2.imwrite(os.path.join(output_dir, "current_track.png"), image)
+
+    st.sidebar.header("Image Grid params")
+    n_rows = st.sidebar.slider("Number of rows", min_value=1, max_value=10, value=5, step=1)
+    images_per_row = st.sidebar.slider("Number of images per row", min_value=9, max_value=49, value=19, step=10)
+    stride = st.sidebar.slider("Stride", min_value=1, max_value=25, value=5, step=1)
+
+    st.sidebar.header("Image transforms")
+    image_transforms = {
+        "brightness": st.sidebar.slider("Brightness", min_value=-1.0, max_value=1.0, value=0.0, step=0.1),
+        "contrast": st.sidebar.slider("Contrast", min_value=-1.0, max_value=1.0, value=0.0, step=0.1),
+    }
+    # CLAHE params
+    if st.sidebar.checkbox("Use CLAHE"):
+        image_transforms["clahe"] = {
+            "clip_limit": st.sidebar.slider("CLAHE clip_limit", min_value=0.0, max_value=8., value=4.0, step=0.1),
+            "tile_grid_size": (
+                st.sidebar.slider("CLAHE tile_grid_height", min_value=1, max_value=16, value=2, step=1),
+                st.sidebar.slider("CLAHE tile_grid_width", min_value=1, max_value=16, value=2, step=1),
+            ),
+        }
+    else:
+        image_transforms["clahe"] = None
+
+    return data_path, track_id, frames, n_rows, images_per_row, stride, image_transforms
+
+
+def choose_data(data_dir):
+    files = [name for name in os.listdir(data_dir) if name.endswith(".h5")]
+    st.sidebar.header("Choose data")
+    data_file = st.sidebar.selectbox("", options=files)
+    return os.path.join(data_dir, data_file)
 
 
 def adding_sequences(frames, track_id, save_filename):
@@ -73,28 +104,13 @@ def load_images(track_id, data_path):
     return images
 
 
-def choose_video():
-    videos = [name for name in os.listdir("../data") if name.endswith(".mp4")]
-    video_file = st.selectbox("Choose video", options=videos)
-    path = os.path.join("../data", video_file)
-    st.video(path)
-    return path
-
-
-def choose_detects():
-    detects = [name for name in os.listdir("../data") if name.endswith(".csv")]
-    detects_file = st.selectbox(
-        "Choose detects file", options=detects)
-    path = os.path.join("../data", detects_file)
-    return path
-
-
-def choose_track(track_ids):
-    st.header("Choose track id")
-    st.text(
+def choose_track(data_path):
+    track_ids = get_track_ids(data_path)
+    st.sidebar.header("Choose track id")
+    st.sidebar.text(
         f"There are {len(track_ids)} tracks, starting from {min(track_ids)}.")
-    track_id = st.number_input("Track id", min_value=min(
-        track_ids), max_value=max(track_ids), step=1)
+    track_id = st.sidebar.number_input(
+        "Track id", min_value=min(track_ids), max_value=max(track_ids), step=1)
     return track_id
 
 
@@ -105,29 +121,48 @@ def load_track(track_id):
     return frames, bbox_get_func
 
 
-def choose_frame_no(max_val):
+def choose_frame_no(max_val, step=10):
     st.header('Choose frame')
-    frame_no = st.slider('Frame_no', min_value=0, max_value=max_val, step=10)
+    frame_no = st.slider('Frame_no', min_value=0, max_value=max_val, step=step)
     return frame_no
 
 
-def show_images(frame_no, frames, N=19, show_caption=True):
-    size = 800 // N
+def show_images(frame_no, frames, N=19, stride=1, image_transforms=None,
+                show_caption=True, frame_arrow=True):
+    hsize = wsize = 800 // N
+
+    def get_frame(_rel_no):
+        abs_no = _rel_no + frame_no
+        if abs_no < 0 or abs_no >= len(frames):
+            return np.zeros((hsize, wsize, 3))
+
+        frame = frames[abs_no]
+        frame = cv2.resize(frame, (hsize, wsize))
+
+        if image_transforms is not None:
+            # Brightness and Contrast
+            alpha, beta = 1.0 + image_transforms["brightness"], image_transforms["contrast"]
+            frame = brightness_contrast_adjust(frame, alpha=alpha, beta=beta, beta_by_max=True)
+
+            # CLAHE
+            if image_transforms["clahe"] is not None:
+                frame = clahe(frame, **image_transforms["clahe"])
+
+        return frame[:, :, ::-1]
+
+    def get_caption(_rel_no):
+        abs_no = _rel_no + frame_no
+        if show_caption:
+            return str(abs_no) if rel_no != 0 or not frame_arrow else "↑"
+
+        return "" if rel_no != 0 or not frame_arrow else "↑"
+
     columns = st.beta_columns(N)
     for i, column in enumerate(columns):
         with column:
-            rel_no = i - (N - 1) // 2
-            abs_no = rel_no + frame_no
-            if abs_no < 0 or abs_no >= len(frames):
-                frame = np.zeros((size, size, 3))
-            else:
-                frame = frames[rel_no + frame_no]
-                frame = cv2.resize(frame, (size, size))
-            if show_caption:
-                caption = str(rel_no + frame_no) if rel_no != 0 else "↑"
-            else:
-                caption = "" if rel_no != 0 else "↑"
-            st.image(frame[:, :, ::-1], caption=caption, output_format='PNG')
+            rel_no = (i - (N - 1) // 2) * stride
+            frame, caption = get_frame(rel_no), get_caption(rel_no)
+            st.image(frame, caption=caption, output_format='PNG')
 
 
 def canvas(frames, n=70, size=32):
