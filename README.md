@@ -27,7 +27,7 @@ streamlit run app/app.py [--data_dir, --output_dir]
 
 1. Preprocessing — extracting player boxes from the video and save them for labeling.
 
-Choose video and detects, run Start and wait all boxes to be extracted.
+- Choose video and detects, run Start and wait all boxes to be extracted.
 
 2. Labeling
 
