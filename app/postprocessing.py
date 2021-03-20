@@ -5,6 +5,13 @@ import cv2
 import streamlit as st
 import vtools as vt
 
+from utils import (
+    choose_detects,
+    choose_labels,
+    choose_video,
+    get_arguments
+)
+
 
 SAVE_DIR = "../output/images/"
 
@@ -18,38 +25,15 @@ def main():
     st.header("Postprocessing | saving images to disk")
 
     # Preprocess
-    video_path = choose_video()
-    detects_path = choose_detects()
-    labels_path = choose_labels()
+    args = get_arguments()
+    video_path = choose_video(args.data_dir)
+    detects_path = choose_detects(args.data_dir)
+    labels_path = choose_labels(args.output_dir)
 
     load_bar = st.progress(0)
     load_button = st.button("Start processing video")
     if load_button:
         process_data(labels_path, detects_path, video_path, pbar=load_bar)
-
-
-def choose_labels():
-    labels = [name for name in os.listdir(
-        "../output") if name.endswith(".txt")]
-    labels_file = st.selectbox("Choose labels", options=labels)
-    path = os.path.join("../output", labels_file)
-    return path
-
-
-def choose_video():
-    videos = [name for name in os.listdir("../data") if name.endswith(".mp4")]
-    video_file = st.selectbox("Choose video", options=videos)
-    path = os.path.join("../data", video_file)
-    st.video(path)
-    return path
-
-
-def choose_detects():
-    detects = [name for name in os.listdir("../data") if name.endswith(".csv")]
-    detects_file = st.selectbox(
-        "Choose detects file", options=detects)
-    path = os.path.join("../data", detects_file)
-    return path
 
 
 def process_data(labels_file, detects_file, video_file, pbar=None):

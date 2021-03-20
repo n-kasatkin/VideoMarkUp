@@ -4,8 +4,6 @@ import pandas as pd
 import cv2
 import h5py
 
-import streamlit as st
-
 
 SAVE_DIR = '../output/preprocessed_videos/'
 
