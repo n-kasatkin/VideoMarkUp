@@ -15,7 +15,7 @@ def get_arguments():
 def config_page_and_title(stage=None):
     st.set_page_config(
         page_title="Video App",
-        page_icon=":soccer_ball:",
+        page_icon=":soccer:",
         layout="wide",
     )
     title = "Jersey Number Labeling"
