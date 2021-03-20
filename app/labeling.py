@@ -37,7 +37,6 @@ def choose_data_and_track(data_dir, output_dir):
     data_path = choose_data(data_dir)
     track_id = choose_track(data_path)
     frames = load_images(track_id, data_path)
-    st.text(f"There are {len(frames):5d} frames for this track id.")
     save_canvas_button = st.sidebar.button("Save the whole track canvas to disk")
     if save_canvas_button:
         image = canvas(frames, n=int(np.sqrt(len(frames))))
