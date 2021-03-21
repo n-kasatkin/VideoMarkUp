@@ -32,6 +32,11 @@ def labeling():
     # Create file with marked data
     adding_sequences(frames, track_id, save_filename=os.path.basename(data_path)[:-3])
 
+    # Detailed view
+    step = images_per_row // 2
+    detailed_frame_no = choose_frame_no(len(frames) - 1, step=step)
+    show_images(detailed_frame_no, frames, N=images_per_row, stride=1, image_transforms=image_transforms)
+
 
 def choose_data_and_track(data_dir, output_dir):
     data_path = choose_data(data_dir)
