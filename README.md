@@ -38,4 +38,4 @@ streamlit run app/app.py [--data_dir, --output_dir]
 
 3. Postprocessing
 
-TBD
+- Choose video, detects and labels, run Start and wait till the labels archive will be created.
