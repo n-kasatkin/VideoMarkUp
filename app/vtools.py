@@ -90,11 +90,11 @@ def get_bbox(frame, bbox, return_original_bbox=False):
     x, y, w, h = bbox
     bbox_img = frame[y:y+h, x:x+w]
     h, w, _ = bbox_img.shape
-    h_clip = h * 2 // 3
+    h1, h2 = h // 7, h // 2
     if return_original_bbox:
-        return bbox_img[:h_clip], bbox_img
+        return bbox_img[h1: h2], bbox_img
     else:
-        return bbox_img[:h_clip]
+        return bbox_img[h1: h2]
 
 
 def bbox_from_df(df, frame_no, return_track_id=False):
