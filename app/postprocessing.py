@@ -4,6 +4,7 @@ import pandas as pd
 import cv2
 import streamlit as st
 import vtools as vt
+from shutil import copy, make_archive, rmtree
 
 from utils import (
     choose_detects,
@@ -29,6 +30,7 @@ def postprocessing():
     load_button = st.button("Start processing video")
     if load_button:
         process_data(labels_path, detects_path, video_path, args.output_dir, pbar=load_bar)
+        st.text("Video successfully postprocessed.")
 
 
 def process_data(labels_file, detects_file, video_file, output_dir, pbar=None):
@@ -47,11 +49,14 @@ def process_data(labels_file, detects_file, video_file, output_dir, pbar=None):
         frame_sets[track_id].add(frame_no)
         labels[track_id][frame_no] = row["label"]
 
-    match_name = video_file[video_file.rfind(
-        "\\") + 1: video_file.rfind(".mp4")]
-    os.makedirs(os.path.join(output_dir, match_name,
-                             "not_visible"), exist_ok=True)
-    os.makedirs(os.path.join(output_dir, match_name, "visible"), exist_ok=True)
+    match_name = video_file[video_file.rfind("\\") + 1: video_file.rfind(".mp4")]
+    match_dir = os.path.join(output_dir, match_name)
+
+    visible_dir = os.path.join(match_dir, "visible")
+    os.makedirs(visible_dir, exist_ok=True)
+
+    not_visible_dir = os.path.join(match_dir, "not_visible")
+    os.makedirs(not_visible_dir, exist_ok=True)
 
     cap = cv2.VideoCapture(video_file)
     assert cap.isOpened(), "Can't open video"
@@ -65,16 +70,18 @@ def process_data(labels_file, detects_file, video_file, output_dir, pbar=None):
                     frame, bbox, return_original_bbox=True)
                 save_filename = f"track_{track_id}_frame_{frame_no}.png"
                 if labels[track_id][frame_no] == -1:
-                    cv2.imwrite(os.path.join(output_dir, match_name,
-                                             "not_visible", save_filename), orig_bbox)
+                    cv2.imwrite(os.path.join(not_visible_dir, save_filename), orig_bbox)
                 else:
-                    cv2.imwrite(os.path.join(output_dir, match_name,
-                                             "visible", save_filename), orig_bbox)
+                    cv2.imwrite(os.path.join(visible_dir, save_filename), orig_bbox)
         frame_no += 1
         if pbar:
             pbar.progress(frame_no / last_frame)
         if frame_no == last_frame:
             break
+
+    copy(labels_file, match_dir)
+    make_archive(os.path.join(output_dir, match_name), "zip", match_dir)
+    rmtree(match_dir)
 
 
 def main():
