@@ -5,9 +5,6 @@ import cv2
 import h5py
 
 
-SAVE_DIR = '../output/preprocessed_videos/'
-
-
 # For writing number
 font = cv2.FONT_HERSHEY_SIMPLEX
 org = (0, 7)
@@ -32,7 +29,6 @@ def preprocess_data(video_file, detects_file, data_dir, pbar=None):
 
     match_name = video_file[video_file.rfind(
         "\\") + 1: video_file.rfind(".mp4")]
-    os.makedirs(os.path.join(SAVE_DIR, match_name), exist_ok=True)
 
     cap = cv2.VideoCapture(video_file)
     assert cap.isOpened(), "Can't open video"
