@@ -9,9 +9,8 @@ from albumentations.augmentations.functional import brightness_contrast_adjust, 
 from utils import config_page, get_arguments, title, Stage
 
 
-def labeling():
+def labeling(args):
     title(stage=Stage.LABELING)
-    args = get_arguments()
 
     # Sidebar options
     data_path, track_id, frames = choose_data_and_track(args.data_dir, args.output_dir)
@@ -191,7 +190,7 @@ def canvas(frames, n=70, size=32):
 
 def main():
     config_page()
-    labeling()
+    labeling(get_arguments())
 
 
 if __name__ == "__main__":

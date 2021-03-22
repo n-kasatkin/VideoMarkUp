@@ -17,11 +17,10 @@ from utils import (
 )
 
 
-def postprocessing():
+def postprocessing(args):
     title(stage=Stage.POSTPROCESSING)
 
     # Preprocess
-    args = get_arguments()
     video_path = choose_video(args.data_dir)
     detects_path = choose_detects(args.data_dir)
     labels_path = choose_labels(args.output_dir)
@@ -86,7 +85,7 @@ def process_data(labels_file, detects_file, video_file, output_dir, pbar=None):
 
 def main():
     config_page()
-    postprocessing()
+    postprocessing(get_arguments())
 
 
 if __name__ == "__main__":
