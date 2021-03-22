@@ -4,55 +4,36 @@ import pandas as pd
 import cv2
 import streamlit as st
 import vtools as vt
+from shutil import copy, make_archive, rmtree
+
+from utils import (
+    choose_detects,
+    choose_labels,
+    choose_video,
+    config_page,
+    get_arguments,
+    title,
+    Stage,
+)
 
 
-SAVE_DIR = "../output/images/"
-
-
-def main():
-    st.set_page_config(
-        page_title="Video App",
-        page_icon=":shark:"
-    )
-    st.title("This is an app for manual football video markup")
-    st.header("Postprocessing | saving images to disk")
+def postprocessing():
+    title(stage=Stage.POSTPROCESSING)
 
     # Preprocess
-    video_path = choose_video()
-    detects_path = choose_detects()
-    labels_path = choose_labels()
+    args = get_arguments()
+    video_path = choose_video(args.data_dir)
+    detects_path = choose_detects(args.data_dir)
+    labels_path = choose_labels(args.output_dir)
 
     load_bar = st.progress(0)
     load_button = st.button("Start processing video")
     if load_button:
-        process_data(labels_path, detects_path, video_path, pbar=load_bar)
+        process_data(labels_path, detects_path, video_path, args.output_dir, pbar=load_bar)
+        st.text("Video successfully postprocessed.")
 
 
-def choose_labels():
-    labels = [name for name in os.listdir(
-        "../output") if name.endswith(".txt")]
-    labels_file = st.selectbox("Choose labels", options=labels)
-    path = os.path.join("../output", labels_file)
-    return path
-
-
-def choose_video():
-    videos = [name for name in os.listdir("../data") if name.endswith(".mp4")]
-    video_file = st.selectbox("Choose video", options=videos)
-    path = os.path.join("../data", video_file)
-    st.video(path)
-    return path
-
-
-def choose_detects():
-    detects = [name for name in os.listdir("../data") if name.endswith(".csv")]
-    detects_file = st.selectbox(
-        "Choose detects file", options=detects)
-    path = os.path.join("../data", detects_file)
-    return path
-
-
-def process_data(labels_file, detects_file, video_file, pbar=None):
+def process_data(labels_file, detects_file, video_file, output_dir, pbar=None):
     labels_df = pd.read_csv(
         labels_file, names=["track_id", "rel_frame", "label"], dtype=int)
     detects = pd.read_csv(detects_file, low_memory=False)
@@ -68,11 +49,14 @@ def process_data(labels_file, detects_file, video_file, pbar=None):
         frame_sets[track_id].add(frame_no)
         labels[track_id][frame_no] = row["label"]
 
-    match_name = video_file[video_file.rfind(
-        "\\") + 1: video_file.rfind(".mp4")]
-    os.makedirs(os.path.join(SAVE_DIR, match_name,
-                             "not_visible"), exist_ok=True)
-    os.makedirs(os.path.join(SAVE_DIR, match_name, "visible"), exist_ok=True)
+    match_name = video_file[video_file.rfind("\\") + 1: video_file.rfind(".mp4")]
+    match_dir = os.path.join(output_dir, match_name)
+
+    visible_dir = os.path.join(match_dir, "visible")
+    os.makedirs(visible_dir, exist_ok=True)
+
+    not_visible_dir = os.path.join(match_dir, "not_visible")
+    os.makedirs(not_visible_dir, exist_ok=True)
 
     cap = cv2.VideoCapture(video_file)
     assert cap.isOpened(), "Can't open video"
@@ -86,17 +70,24 @@ def process_data(labels_file, detects_file, video_file, pbar=None):
                     frame, bbox, return_original_bbox=True)
                 save_filename = f"track_{track_id}_frame_{frame_no}.png"
                 if labels[track_id][frame_no] == -1:
-                    cv2.imwrite(os.path.join(SAVE_DIR, match_name,
-                                             "not_visible", save_filename), orig_bbox)
+                    cv2.imwrite(os.path.join(not_visible_dir, save_filename), orig_bbox)
                 else:
-                    cv2.imwrite(os.path.join(SAVE_DIR, match_name,
-                                             "visible", save_filename), orig_bbox)
+                    cv2.imwrite(os.path.join(visible_dir, save_filename), orig_bbox)
         frame_no += 1
         if pbar:
             pbar.progress(frame_no / last_frame)
         if frame_no == last_frame:
             break
 
+    copy(labels_file, match_dir)
+    make_archive(os.path.join(output_dir, match_name), "zip", match_dir)
+    rmtree(match_dir)
+
+
+def main():
+    config_page()
+    postprocessing()
+
 
 if __name__ == "__main__":
-    main()
+    postprocessing()
