@@ -20,7 +20,8 @@ Or you can specify custom data directory using --data_dir arg.
 
 4. Run
 ```
-streamlit run app/app.py [--data_dir, --output_dir]
+cd app
+streamlit run app.py [--data_dir, --output_dir]
 ```
 
 #### How to use

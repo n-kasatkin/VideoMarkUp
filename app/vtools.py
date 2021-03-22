@@ -21,7 +21,7 @@ def write_text(image, text):
                 fontScale, color, thickness, cv2.LINE_AA)
 
 
-def preprocess_data(video_file, detects_file, pbar=None):
+def preprocess_data(video_file, detects_file, data_dir, pbar=None):
     detects = pd.read_csv(detects_file, low_memory=False)
     track_ids = np.unique(
         detects[~np.isnan(detects['track_id'])]['track_id']).astype(int)
@@ -51,7 +51,7 @@ def preprocess_data(video_file, detects_file, pbar=None):
         if frame_no == last_frame:
             break
 
-    file = h5py.File(f"../data/{match_name}.h5", "w")
+    file = h5py.File(os.path.join(data_dir, f"{match_name}.h5"), "w")
     for track_id in track_ids:
         file.create_dataset(
             str(track_id), np.shape(tracks_images[track_id]),
