@@ -14,8 +14,8 @@ class Stage(Enum):
 @st.cache
 def get_arguments():
     parser = ArgumentParser()
-    parser.add_argument("--data_dir", type=str, default="data")
-    parser.add_argument("--output_dir", type=str, default="output")
+    parser.add_argument("--data_dir", type=str, default="../data")
+    parser.add_argument("--output_dir", type=str, default="../output")
     return parser.parse_args()
 
 
