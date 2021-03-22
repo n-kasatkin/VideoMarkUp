@@ -21,7 +21,7 @@ def preprocessing():
     load_bar = st.progress(0)
     load_button = st.button("Start preprocessing video")
     if load_button:
-        vt.preprocess_data(video_path, detects_path, pbar=load_bar)
+        vt.preprocess_data(video_path, detects_path, args.data_dir, pbar=load_bar)
         st.text("Video successfully preprocessed.")
 
 
