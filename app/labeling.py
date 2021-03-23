@@ -52,8 +52,9 @@ def labeling(args):
 
 
 def show_track_stats(track_sequences):
+    counts = track_sequences.get_stats()
+
     stats = pd.DataFrame()
-    counts = Counter(np.asarray(track_sequences.segments)[:, 2])
     stats["number"] = counts.keys()
     stats["count"] = counts.values()
 
