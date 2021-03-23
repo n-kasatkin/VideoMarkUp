@@ -42,7 +42,7 @@ def choose_detects(data_dir):
 
 
 def choose_labels(output_dir):
-    labels = [name for name in os.listdir(output_dir) if name.endswith(".txt")]
+    labels = [name for name in os.listdir(output_dir) if name.endswith(".json")]
     labels_file = st.selectbox("Choose labels", options=labels)
     path = os.path.join(output_dir, labels_file)
     return path

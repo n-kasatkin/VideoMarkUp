@@ -11,11 +11,10 @@ from utils import (
 )
 
 
-def preprocessing():
+def preprocessing(args):
     title(stage=Stage.PREPROCESSING)
 
     # Preprocess
-    args = get_arguments()
     video_path = choose_video(args.data_dir)
     detects_path = choose_detects(args.data_dir)
     load_bar = st.progress(0)
@@ -27,7 +26,7 @@ def preprocessing():
 
 def main():
     config_page()
-    preprocessing()
+    preprocessing(get_arguments())
 
 
 if __name__ == "__main__":

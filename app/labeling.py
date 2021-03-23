@@ -1,17 +1,19 @@
+import json
 import os
-import numpy as np
+import os.path as osp
+
 import cv2
 import h5py
+import numpy as np
 import streamlit as st
-import vtools as vt
 from albumentations.augmentations.functional import brightness_contrast_adjust, clahe
 
+import vtools as vt
 from utils import config_page, get_arguments, title, Stage
 
 
-def labeling():
+def labeling(args):
     title(stage=Stage.LABELING)
-    args = get_arguments()
 
     # Sidebar options
     data_path, track_id, frames = choose_data_and_track(args.data_dir, args.output_dir)
@@ -30,12 +32,21 @@ def labeling():
                     image_transforms=image_transforms, frame_arrow=(row == 0))
 
     # Create file with marked data
-    adding_sequences(frames, track_id, save_filename=os.path.basename(data_path)[:-3])
+    sequences_file = osp.join(args.output_dir, osp.splitext(osp.basename(data_path))[0] + ".json")
+    sequences = load_sequences(sequences_file)
+    sequences = adding_sequences(sequences, track_id)
 
     # Detailed view
     step = images_per_row // 2
     detailed_frame_no = choose_frame_no(len(frames) - 1, step=step)
     show_images(detailed_frame_no, frames, N=images_per_row, stride=1, image_transforms=image_transforms)
+
+    # Show sequences
+    remove_indices = show_sequences(sequences, track_id)
+    if len(remove_indices) > 0 and track_id in sequences:
+        sequences[track_id] = [seq for i, seq in enumerate(sequences[track_id]) if i not in set(remove_indices)]
+
+    save_sequences(sequences, sequences_file)
 
 
 def choose_data_and_track(data_dir, output_dir):
@@ -86,7 +97,8 @@ def choose_data(data_dir):
     return os.path.join(data_dir, data_file)
 
 
-def adding_sequences(frames, track_id, save_filename):
+def adding_sequences(sequences, track_id):
+    # Add sequence interface
     columns = st.beta_columns(3)
     with columns[0]:
         visible_number = st.number_input("Visible number", min_value=-1)
@@ -94,12 +106,28 @@ def adding_sequences(frames, track_id, save_filename):
         first_frame = st.number_input("First frame", min_value=0)
     with columns[2]:
         last_frame = st.number_input("Last frame", min_value=0)
-    add_string_button = st.button("Add this sequence")
-    if add_string_button:
-        with open(os.path.join("../output/", save_filename + ".txt"), "a+") as file:
-            for i in range(first_frame, last_frame + 1):
-                file.write(str(track_id) + "," + str(i) + "," +
-                           str(visible_number) + "\n")
+
+    if st.button("Add this sequence"):
+        if track_id not in sequences:
+            sequences[track_id] = []
+        sequences[track_id].append([first_frame, last_frame, track_id, visible_number])
+
+    return sequences
+
+
+def load_sequences(file):
+    if os.path.exists(file):
+        with open(file) as inpf:
+            sequences = {int(track_id): val for track_id, val in json.load(inpf).items()}
+    else:
+        sequences = dict()
+
+    return sequences
+
+
+def save_sequences(sequences, file):
+    with open(file, "w+") as outf:
+        json.dump(sequences, outf)
 
 
 def get_track_ids(data_path):
@@ -177,6 +205,37 @@ def show_images(frame_no, frames, N=19, stride=1, image_transforms=None,
             st.image(frame, caption=caption, output_format='PNG')
 
 
+def show_sequences(sequences, track_id, lastk=5):
+    if track_id not in sequences:
+        return []
+
+    # Header
+    columns = st.beta_columns(4)
+    with columns[0]:
+        st.header("First frame")
+    with columns[1]:
+        st.header("Last frame")
+    with columns[2]:
+        st.header("Number")
+    with columns[3]:
+        st.header("")
+
+    remove = []
+    for i, (first_frame, last_frame, _, number) in sorted(enumerate(sequences[track_id]), key=lambda x: x[1])[-lastk:]:
+        columns = st.beta_columns(4)
+        with columns[0]:
+            st.text(first_frame)
+        with columns[1]:
+            st.text(last_frame)
+        with columns[2]:
+            st.text(number)
+        with columns[3]:
+            if st.button("Remove", key=f"remove_{i}"):
+                remove.append(i)
+
+    return remove
+
+
 def canvas(frames, n=70, size=32):
     image = np.zeros((size*n, size*n, 3))
     for idx, bbox in enumerate(frames):
@@ -191,7 +250,7 @@ def canvas(frames, n=70, size=32):
 
 def main():
     config_page()
-    labeling()
+    labeling(get_arguments())
 
 
 if __name__ == "__main__":

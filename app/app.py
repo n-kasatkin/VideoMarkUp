@@ -3,7 +3,7 @@ import streamlit as st
 from labeling import labeling
 from postprocessing import postprocessing
 from preprocessing import preprocessing
-from utils import config_page, Stage
+from utils import config_page, get_arguments, Stage
 
 
 def choose_stage():
@@ -16,13 +16,14 @@ def choose_stage():
 def main():
     config_page()
 
+    args = get_arguments()
     stage = choose_stage()
     if stage == Stage.PREPROCESSING:
-        return preprocessing()
+        return preprocessing(args)
     elif stage == Stage.LABELING:
-        return labeling()
+        return labeling(args)
     elif stage == Stage.POSTPROCESSING:
-        return postprocessing()
+        return postprocessing(args)
     else:
         raise ValueError(f"Unexpected stage: {stage.value}")
 

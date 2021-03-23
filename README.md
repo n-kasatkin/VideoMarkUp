@@ -16,12 +16,11 @@ python -m pip install -r requirements.txt
 ```
 
 3. Create directory "data" in the repo and copy video and detects files to it.
-Or you can specify custom data directory using --data_dir arg.
 
 4. Run
 ```
 cd app
-streamlit run app.py [--data_dir, --output_dir]
+streamlit run app.py
 ```
 
 #### How to use
