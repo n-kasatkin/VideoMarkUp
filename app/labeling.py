@@ -17,7 +17,7 @@ def labeling(args):
     title(stage=Stage.LABELING)
 
     # Sidebar options
-    data_path, track_id, frames = choose_data_and_track(args.data_dir, args.output_dir)
+    data_path, track_id, track_ids, frames = choose_data_and_track(args.data_dir, args.output_dir)
     n_rows, images_per_row, stride = choose_image_grid_params()
     image_transforms = choose_image_transforms()
 
@@ -28,7 +28,7 @@ def labeling(args):
 
     # Create file with marked data
     sequences_file = osp.join(args.output_dir, osp.splitext(osp.basename(data_path))[0] + ".json")
-    sequences = load_sequences(sequences_file)
+    sequences = load_sequences(sequences_file, track_ids)
     sequences = adding_sequences(sequences, track_id)
     track_sequences = sequences[track_id]
 
@@ -52,8 +52,9 @@ def labeling(args):
 
 
 def show_track_stats(track_sequences):
+    counts = track_sequences.get_stats()
+
     stats = pd.DataFrame()
-    counts = Counter(np.asarray(track_sequences.segments)[:, 2])
     stats["number"] = counts.keys()
     stats["count"] = counts.values()
 
@@ -63,14 +64,14 @@ def show_track_stats(track_sequences):
 
 def choose_data_and_track(data_dir, output_dir):
     data_path = choose_data(data_dir)
-    track_id = choose_track(data_path)
+    track_id, track_ids = choose_track(data_path)
     frames = load_images(track_id, data_path)
     save_canvas_button = st.sidebar.button("Save the whole track canvas to disk")
     if save_canvas_button:
         image = canvas(frames, n=int(np.sqrt(len(frames))))
         cv2.imwrite(os.path.join(output_dir, "current_track.png"), image)
 
-    return data_path, track_id, frames
+    return data_path, track_id, track_ids, frames
 
 
 def choose_image_grid_params():
@@ -170,7 +171,7 @@ def choose_track(data_path):
         f"There are {len(track_ids)} tracks, starting from {min(track_ids)}.")
     track_id = st.sidebar.number_input(
         "Track id", min_value=min(track_ids), max_value=max(track_ids), step=1)
-    return track_id
+    return track_id, track_ids
 
 
 def load_track(track_id):

@@ -1,3 +1,6 @@
+from collections import Counter
+
+
 class TrackNumberSegments:
     def __init__(self, segments=None):
         # Segments should be always sorted
@@ -70,6 +73,13 @@ class TrackNumberSegments:
                 l = m + 1
 
         return None
+
+    def get_stats(self):
+        stats = Counter()
+        for first, last, number in self.segments:
+            stats[number] += last - first + 1
+
+        return stats
 
     def _merge(self, segments):
         if len(segments) == 0:
