@@ -1,9 +1,11 @@
 import os
 import os.path as osp
+from collections import Counter
 
 import cv2
 import h5py
 import numpy as np
+import pandas as pd
 import streamlit as st
 from albumentations.augmentations.functional import brightness_contrast_adjust, clahe
 
@@ -42,7 +44,21 @@ def labeling(args):
     show_images(detailed_frame_no, frames, track_sequences, N=images_per_row,
                 stride=1, image_transforms=image_transforms)
 
+    # Show track number stats
+    show_track_stats(track_sequences)
+
+    # Save updated sequences
     save_sequences(sequences, sequences_file)
+
+
+def show_track_stats(track_sequences):
+    stats = pd.DataFrame()
+    counts = Counter(np.asarray(track_sequences.segments)[:, 2])
+    stats["number"] = counts.keys()
+    stats["count"] = counts.values()
+
+    st.header("Track Number Statistics")
+    st.dataframe(stats.sort_values("count", ascending=False))
 
 
 def choose_data_and_track(data_dir, output_dir):
