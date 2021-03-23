@@ -1,15 +1,16 @@
-import json
 import os
 import os.path as osp
+from collections import Counter
 
 import cv2
 import h5py
 import numpy as np
+import pandas as pd
 import streamlit as st
 from albumentations.augmentations.functional import brightness_contrast_adjust, clahe
 
 import vtools as vt
-from utils import config_page, get_arguments, title, Stage
+from utils import config_page, get_arguments, load_sequences, save_sequences, title, Stage
 
 
 def labeling(args):
@@ -25,28 +26,39 @@ def labeling(args):
     frame_no = choose_frame_no(len(frames) - 1, step)
     st.text(f"This is {frame_no:5d} frame.")
 
-    # Images
-    for row in range(n_rows):
-        row_frame_no = frame_no + row * images_per_row * stride
-        show_images(row_frame_no, frames, N=images_per_row, stride=stride,
-                    image_transforms=image_transforms, frame_arrow=(row == 0))
-
     # Create file with marked data
     sequences_file = osp.join(args.output_dir, osp.splitext(osp.basename(data_path))[0] + ".json")
     sequences = load_sequences(sequences_file)
     sequences = adding_sequences(sequences, track_id)
+    track_sequences = sequences[track_id]
+
+    # Images
+    for row in range(n_rows):
+        row_frame_no = frame_no + row * images_per_row * stride
+        show_images(row_frame_no, frames, track_sequences, N=images_per_row,
+                    stride=stride, image_transforms=image_transforms, frame_arrow=(row == 0))
 
     # Detailed view
     step = images_per_row // 2
     detailed_frame_no = choose_frame_no(len(frames) - 1, step=step)
-    show_images(detailed_frame_no, frames, N=images_per_row, stride=1, image_transforms=image_transforms)
+    show_images(detailed_frame_no, frames, track_sequences, N=images_per_row,
+                stride=1, image_transforms=image_transforms)
 
-    # Show sequences
-    remove_indices = show_sequences(sequences, track_id)
-    if len(remove_indices) > 0 and track_id in sequences:
-        sequences[track_id] = [seq for i, seq in enumerate(sequences[track_id]) if i not in set(remove_indices)]
+    # Show track number stats
+    show_track_stats(track_sequences)
 
+    # Save updated sequences
     save_sequences(sequences, sequences_file)
+
+
+def show_track_stats(track_sequences):
+    stats = pd.DataFrame()
+    counts = Counter(np.asarray(track_sequences.segments)[:, 2])
+    stats["number"] = counts.keys()
+    stats["count"] = counts.values()
+
+    st.header("Track Number Statistics")
+    st.dataframe(stats.sort_values("count", ascending=False))
 
 
 def choose_data_and_track(data_dir, output_dir):
@@ -98,36 +110,43 @@ def choose_data(data_dir):
 
 
 def adding_sequences(sequences, track_id):
+    # Load state
+    state = st.experimental_get_query_params()
+    new_first_frame = int(state.get("new_first_frame", [0])[0])
+
     # Add sequence interface
     columns = st.beta_columns(3)
     with columns[0]:
         visible_number = st.number_input("Visible number", min_value=-1)
     with columns[1]:
-        first_frame = st.number_input("First frame", min_value=0)
+        col1 = st.empty()
     with columns[2]:
-        last_frame = st.number_input("Last frame", min_value=0)
+        col2 = st.empty()
 
-    if st.button("Add this sequence"):
+    first_frame = col1.number_input("First frame", value=new_first_frame, min_value=0, step=5, key="first_frame")
+    last_frame = col2.number_input("Last frame", value=new_first_frame + 1, min_value=0, step=5, key="last_frame")
+
+    # Getting the number
+    number = None
+    with columns[0]:
+        if st.button("Number visible"):
+            number = visible_number
+        elif st.button("-1: No number"):
+            number = -1
+
+    with columns[1]:
+        if st.button("1001: Number is unrecognizable from the side"):
+            number = 1001
+        elif st.button("1000: Number is unrecognizable from the back"):
+            number = 1000
+
+    if number is not None:
         if track_id not in sequences:
             sequences[track_id] = []
-        sequences[track_id].append([first_frame, last_frame, track_id, visible_number])
+        sequences[track_id].add_segment(first_frame, last_frame, number)
+        st.experimental_set_query_params(new_first_frame=last_frame + 1)
 
     return sequences
-
-
-def load_sequences(file):
-    if os.path.exists(file):
-        with open(file) as inpf:
-            sequences = {int(track_id): val for track_id, val in json.load(inpf).items()}
-    else:
-        sequences = dict()
-
-    return sequences
-
-
-def save_sequences(sequences, file):
-    with open(file, "w+") as outf:
-        json.dump(sequences, outf)
 
 
 def get_track_ids(data_path):
@@ -167,7 +186,7 @@ def choose_frame_no(max_val, step=10):
     return frame_no
 
 
-def show_images(frame_no, frames, N=19, stride=1, image_transforms=None,
+def show_images(frame_no, frames, sequences, N=19, stride=1, image_transforms=None,
                 show_caption=True, frame_arrow=True):
     hsize = wsize = 800 // N
 
@@ -193,7 +212,8 @@ def show_images(frame_no, frames, N=19, stride=1, image_transforms=None,
     def get_caption(_rel_no):
         abs_no = _rel_no + frame_no
         if show_caption:
-            return str(abs_no) if rel_no != 0 or not frame_arrow else "↑"
+            number = str(sequences.get_number(abs_no) or "N")
+            return f"{abs_no}({number})" if rel_no != 0 or not frame_arrow else "↑"
 
         return "" if rel_no != 0 or not frame_arrow else "↑"
 
@@ -202,7 +222,7 @@ def show_images(frame_no, frames, N=19, stride=1, image_transforms=None,
         with column:
             rel_no = (i - (N - 1) // 2) * stride
             frame, caption = get_frame(rel_no), get_caption(rel_no)
-            st.image(frame, caption=caption, output_format='PNG')
+            st.image(frame, caption=caption, output_format='PNG', use_column_width=True)
 
 
 def show_sequences(sequences, track_id, lastk=5):

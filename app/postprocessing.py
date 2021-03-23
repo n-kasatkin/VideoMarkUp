@@ -1,17 +1,20 @@
 import os
-import numpy as np
-import pandas as pd
-import cv2
-import streamlit as st
-import vtools as vt
+import os.path as osp
 from shutil import copy, make_archive, rmtree
 
+import cv2
+import numpy as np
+import pandas as pd
+import streamlit as st
+
+import vtools as vt
 from utils import (
     choose_detects,
     choose_labels,
     choose_video,
     config_page,
     get_arguments,
+    load_sequences,
     title,
     Stage,
 )
@@ -33,8 +36,18 @@ def postprocessing(args):
 
 
 def process_data(labels_file, detects_file, video_file, output_dir, pbar=None):
-    labels_df = pd.read_csv(
-        labels_file, names=["track_id", "rel_frame", "label"], dtype=int)
+    sequences = load_sequences(labels_file)
+    labels = []
+    for track_id, track_sequences in sequences.items():
+        for first, last, number in track_sequences.segments:
+            for frame_id in range(first, last + 1):
+                labels.append({
+                    "track_id": track_id,
+                    "rel_frame": frame_id,
+                    "label": number,
+                })
+    labels_df = pd.DataFrame(labels, dtype=int)
+
     detects = pd.read_csv(detects_file, low_memory=False)
     track_ids = np.unique(
         detects[~np.isnan(detects['track_id'])]['track_id']).astype(int)
@@ -79,6 +92,7 @@ def process_data(labels_file, detects_file, video_file, output_dir, pbar=None):
             break
 
     copy(labels_file, match_dir)
+    labels_df.to_csv(osp.join(match_dir, osp.splitext(osp.basename(labels_file))[0] + ".csv"), index=False)
     make_archive(os.path.join(output_dir, match_name), "zip", match_dir)
     rmtree(match_dir)
 
@@ -89,4 +103,4 @@ def main():
 
 
 if __name__ == "__main__":
-    postprocessing()
+    main()

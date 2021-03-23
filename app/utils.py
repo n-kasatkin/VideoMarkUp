@@ -1,8 +1,11 @@
+import json
 import os
 from argparse import ArgumentParser
 from enum import Enum
 
 import streamlit as st
+
+from segments import TrackNumberSegments
 
 
 class Stage(Enum):
@@ -54,3 +57,20 @@ def choose_video(data_dir):
     path = os.path.join(data_dir, video_file)
     st.video(path)
     return path
+
+
+def load_sequences(file):
+    if os.path.exists(file):
+        with open(file) as inpf:
+            sequences = json.load(inpf).items()
+        sequences = {int(track_id): TrackNumberSegments(val) for track_id, val in sequences}
+    else:
+        sequences = dict()
+
+    return sequences
+
+
+def save_sequences(sequences, file):
+    sequences = {key: track_segments.segments for key, track_segments in sequences.items()}
+    with open(file, "w+") as outf:
+        json.dump(sequences, outf)
