@@ -59,13 +59,18 @@ def choose_video(data_dir):
     return path
 
 
-def load_sequences(file):
+def load_sequences(file, track_ids=None):
     if os.path.exists(file):
         with open(file) as inpf:
             sequences = json.load(inpf).items()
         sequences = {int(track_id): TrackNumberSegments(val) for track_id, val in sequences}
     else:
         sequences = dict()
+
+    if track_ids is not None:
+        for track_id in track_ids:
+            if track_id not in sequences:
+                sequences[track_id] = TrackNumberSegments()
 
     return sequences
 
