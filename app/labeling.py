@@ -17,7 +17,8 @@ def labeling(args):
     title(stage=Stage.LABELING)
 
     # Sidebar options
-    data_path, track_id, track_ids, frames = choose_data_and_track(args.data_dir, args.output_dir)
+    data_path, track_id, track_ids, frames = choose_data_and_track(
+        args.data_dir, args.output_dir)
     n_rows, images_per_row, stride = choose_image_grid_params()
     image_transforms = choose_image_transforms()
 
@@ -27,7 +28,8 @@ def labeling(args):
     st.text(f"This is {frame_no:5d} frame.")
 
     # Create file with marked data
-    sequences_file = osp.join(args.output_dir, osp.splitext(osp.basename(data_path))[0] + ".json")
+    sequences_file = osp.join(args.output_dir, osp.splitext(
+        osp.basename(data_path))[0] + ".json")
     sequences = load_sequences(sequences_file, track_ids)
     sequences = adding_sequences(sequences, track_id)
     track_sequences = sequences[track_id]
@@ -66,7 +68,8 @@ def choose_data_and_track(data_dir, output_dir):
     data_path = choose_data(data_dir)
     track_id, track_ids = choose_track(data_path)
     frames = load_images(track_id, data_path)
-    save_canvas_button = st.sidebar.button("Save the whole track canvas to disk")
+    save_canvas_button = st.sidebar.button(
+        "Save the whole track canvas to disk")
     if save_canvas_button:
         image = canvas(frames, n=int(np.sqrt(len(frames))))
         cv2.imwrite(os.path.join(output_dir, "current_track.png"), image)
@@ -76,9 +79,12 @@ def choose_data_and_track(data_dir, output_dir):
 
 def choose_image_grid_params():
     st.sidebar.header("Image Grid params")
-    n_rows = st.sidebar.slider("Number of rows", min_value=1, max_value=10, value=5, step=1)
-    images_per_row = st.sidebar.slider("Number of images per row", min_value=9, max_value=49, value=19, step=10)
-    stride = st.sidebar.slider("Stride", min_value=1, max_value=25, value=5, step=1)
+    n_rows = st.sidebar.slider(
+        "Number of rows", min_value=1, max_value=10, value=5, step=1)
+    images_per_row = st.sidebar.slider(
+        "Number of images per row", min_value=9, max_value=49, value=19, step=10)
+    stride = st.sidebar.slider(
+        "Stride", min_value=1, max_value=25, value=5, step=1)
     return n_rows, images_per_row, stride
 
 
@@ -93,8 +99,10 @@ def choose_image_transforms():
         image_transforms["clahe"] = {
             "clip_limit": st.sidebar.slider("CLAHE clip_limit", min_value=0.0, max_value=8., value=4.0, step=0.1),
             "tile_grid_size": (
-                st.sidebar.slider("CLAHE tile_grid_height", min_value=1, max_value=16, value=2, step=1),
-                st.sidebar.slider("CLAHE tile_grid_width", min_value=1, max_value=16, value=2, step=1),
+                st.sidebar.slider("CLAHE tile_grid_height",
+                                  min_value=1, max_value=16, value=2, step=1),
+                st.sidebar.slider("CLAHE tile_grid_width",
+                                  min_value=1, max_value=16, value=2, step=1),
             ),
         }
     else:
@@ -124,8 +132,10 @@ def adding_sequences(sequences, track_id):
     with columns[2]:
         col2 = st.empty()
 
-    first_frame = col1.number_input("First frame", value=new_first_frame, min_value=0, step=5, key="first_frame")
-    last_frame = col2.number_input("Last frame", value=new_first_frame + 1, min_value=0, step=5, key="last_frame")
+    first_frame = col1.number_input(
+        "First frame", min_value=0, step=5, key="first_frame")
+    last_frame = col2.number_input(
+        "Last frame", min_value=0, step=5, key="last_frame")
 
     # Getting the number
     number = None
@@ -201,8 +211,10 @@ def show_images(frame_no, frames, sequences, N=19, stride=1, image_transforms=No
 
         if image_transforms is not None:
             # Brightness and Contrast
-            alpha, beta = 1.0 + image_transforms["brightness"], image_transforms["contrast"]
-            frame = brightness_contrast_adjust(frame, alpha=alpha, beta=beta, beta_by_max=True)
+            alpha, beta = 1.0 + \
+                image_transforms["brightness"], image_transforms["contrast"]
+            frame = brightness_contrast_adjust(
+                frame, alpha=alpha, beta=beta, beta_by_max=True)
 
             # CLAHE
             if image_transforms["clahe"] is not None:
@@ -223,7 +235,8 @@ def show_images(frame_no, frames, sequences, N=19, stride=1, image_transforms=No
         with column:
             rel_no = (i - (N - 1) // 2) * stride
             frame, caption = get_frame(rel_no), get_caption(rel_no)
-            st.image(frame, caption=caption, output_format='PNG', use_column_width=True)
+            st.image(frame, caption=caption,
+                     output_format='PNG', use_column_width=True)
 
 
 def show_sequences(sequences, track_id, lastk=5):

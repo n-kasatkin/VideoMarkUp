@@ -17,6 +17,7 @@ from utils import (
     load_sequences,
     title,
     Stage,
+    create_dataframe
 )
 
 
@@ -31,7 +32,8 @@ def postprocessing(args):
     load_bar = st.progress(0)
     load_button = st.button("Start processing video")
     if load_button:
-        process_data(labels_path, detects_path, video_path, args.output_dir, pbar=load_bar)
+        process_data(labels_path, detects_path, video_path,
+                     args.output_dir, pbar=load_bar)
         st.text("Video successfully postprocessed.")
 
 
@@ -61,14 +63,11 @@ def process_data(labels_file, detects_file, video_file, output_dir, pbar=None):
         frame_sets[track_id].add(frame_no)
         labels[track_id][frame_no] = row["label"]
 
-    match_name = video_file[video_file.rfind("\\") + 1: video_file.rfind(".mp4")]
+    match_name = video_file[video_file.rfind(
+        "\\") + 1: video_file.rfind(".mp4")]
     match_dir = os.path.join(output_dir, match_name)
-
-    visible_dir = os.path.join(match_dir, "visible")
-    os.makedirs(visible_dir, exist_ok=True)
-
-    not_visible_dir = os.path.join(match_dir, "not_visible")
-    os.makedirs(not_visible_dir, exist_ok=True)
+    match_images_dir = os.path.join(match_dir, match_name)
+    os.makedirs(match_images_dir, exist_ok=True)
 
     cap = cv2.VideoCapture(video_file)
     assert cap.isOpened(), "Can't open video"
@@ -80,21 +79,28 @@ def process_data(labels_file, detects_file, video_file, output_dir, pbar=None):
                 bbox = vt.bbox_from_df(tracks[track_id], frame_no)
                 _, orig_bbox = vt.get_bbox(
                     frame, bbox, return_original_bbox=True)
-                save_filename = f"track_{track_id}_frame_{frame_no}.png"
                 if labels[track_id][frame_no] == -1:
-                    cv2.imwrite(os.path.join(not_visible_dir, save_filename), orig_bbox)
+                    save_filename = f"label_nan_track_{track_id}_frame_{frame_no}.png"
                 else:
-                    cv2.imwrite(os.path.join(visible_dir, save_filename), orig_bbox)
+                    save_filename = f"label_{labels[track_id][frame_no]}_track_{track_id}_frame_{frame_no}.png"
+                cv2.imwrite(os.path.join(
+                    match_images_dir, save_filename), orig_bbox)
+
+        output_df_path = os.path.join(match_dir, match_name + ".csv")
+        create_dataframe(match_images_dir, match_name, output_df_path)
+
         frame_no += 1
         if pbar:
             pbar.progress(frame_no / last_frame)
         if frame_no == last_frame:
             break
 
-    copy(labels_file, match_dir)
-    labels_df.to_csv(osp.join(match_dir, osp.splitext(osp.basename(labels_file))[0] + ".csv"), index=False)
-    make_archive(os.path.join(output_dir, match_name), "zip", match_dir)
-    rmtree(match_dir)
+    labels_df.to_csv(osp.join(match_dir, osp.splitext(
+        osp.basename(labels_file))[0] + ".csv"), index=False)
+
+    # copy(labels_file, match_dir)
+    # make_archive(os.path.join(output_dir, match_name), "zip", match_dir)
+    # rmtree(match_dir)
 
 
 def main():

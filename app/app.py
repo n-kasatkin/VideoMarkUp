@@ -8,7 +8,8 @@ from utils import config_page, get_arguments, Stage
 
 def choose_stage():
     st.sidebar.header("Choose Stage")
-    options = [Stage.PREPROCESSING.value, Stage.LABELING.value, Stage.POSTPROCESSING.value]
+    options = [Stage.PREPROCESSING.value,
+               Stage.LABELING.value, Stage.POSTPROCESSING.value]
     stage = st.sidebar.selectbox("", options=options)
     return Stage(stage)
 

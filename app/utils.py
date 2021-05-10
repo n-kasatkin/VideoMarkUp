@@ -1,7 +1,10 @@
 import json
 import os
+import re
 from argparse import ArgumentParser
 from enum import Enum
+
+import pandas as pd
 
 import streamlit as st
 
@@ -45,7 +48,8 @@ def choose_detects(data_dir):
 
 
 def choose_labels(output_dir):
-    labels = [name for name in os.listdir(output_dir) if name.endswith(".json")]
+    labels = [name for name in os.listdir(
+        output_dir) if name.endswith(".json")]
     labels_file = st.selectbox("Choose labels", options=labels)
     path = os.path.join(output_dir, labels_file)
     return path
@@ -63,7 +67,8 @@ def load_sequences(file, track_ids=None):
     if os.path.exists(file):
         with open(file) as inpf:
             sequences = json.load(inpf).items()
-        sequences = {int(track_id): TrackNumberSegments(val) for track_id, val in sequences}
+        sequences = {int(track_id): TrackNumberSegments(val)
+                     for track_id, val in sequences}
     else:
         sequences = dict()
 
@@ -76,6 +81,21 @@ def load_sequences(file, track_ids=None):
 
 
 def save_sequences(sequences, file):
-    sequences = {key: track_segments.segments for key, track_segments in sequences.items()}
+    sequences = {key: track_segments.segments for key,
+                 track_segments in sequences.items()}
     with open(file, "w+") as outf:
         json.dump(sequences, outf)
+
+
+def create_dataframe(images_path, rel_dir, save_path=None):
+    images = os.listdir(images_path)
+    data = []
+    for image in images:
+        info = re.match(r"label_(.+)_track_(.+)_frame_(.+)\..+", image)
+        data.append([*info.groups()] + [rel_dir + "/" + image])
+
+    df = pd.DataFrame(data=data, columns=[
+                      "number", "track_id", "frame_id", "rel_path"])
+    if save_path:
+        df.to_csv(save_path, index=False)
+    return df
