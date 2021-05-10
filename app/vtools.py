@@ -20,6 +20,7 @@ def write_text(image, text):
 
 def preprocess_data(video_file, detects_file, data_dir, pbar=None):
     detects = pd.read_csv(detects_file, low_memory=False)
+    NUMBERS_AVAILIBLE = True if "jersey_number" in detects.columns.values else False
     track_ids = np.unique(
         detects[~np.isnan(detects['track_id'])]['track_id']).astype(int)
     tracks = {track_id: detects[detects['track_id']
@@ -34,13 +35,24 @@ def preprocess_data(video_file, detects_file, data_dir, pbar=None):
     assert cap.isOpened(), "Can't open video"
     frame_no, last_frame = 0, int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     tracks_images = {track_id: [] for track_id in track_ids}
+    tracks_meta = {track_id: [] for track_id in track_ids}
     while True:
         ret, frame = cap.read()
         for track_id in track_ids:
             if frame_no in frame_sets[track_id]:
-                bbox = bbox_from_df(tracks[track_id], frame_no)
-                bbox_img = get_bbox(frame, bbox)
-                tracks_images[track_id].append(cv2.resize(bbox_img, (32, 32)))
+                if NUMBERS_AVAILIBLE:
+                    bbox, label = bbox_from_df(
+                        tracks[track_id], frame_no, return_jersey_number=True)
+                    bbox_img = get_bbox(frame, bbox)
+                    tracks_images[track_id].append(
+                        cv2.resize(bbox_img, (32, 32)))
+                    tracks_meta[track_id].append(label)
+                else:
+                    bbox = bbox_from_df(
+                        tracks[track_id], frame_no, return_jersey_number=False)
+                    bbox_img = get_bbox(frame, bbox)
+                    tracks_images[track_id].append(
+                        cv2.resize(bbox_img, (32, 32)))
         frame_no += 1
         if pbar:
             pbar.progress(frame_no / last_frame)
@@ -54,6 +66,12 @@ def preprocess_data(video_file, detects_file, data_dir, pbar=None):
             h5py.h5t.STD_U8BE,
             data=tracks_images[track_id]
         )
+        if NUMBERS_AVAILIBLE:
+            file.create_dataset(
+                str(track_id) + "_meta", np.shape(tracks_meta[track_id]),
+                dtype='i4',
+                data=tracks_meta[track_id]
+            )
     file.close()
 
 
@@ -93,9 +111,9 @@ def get_bbox(frame, bbox, return_original_bbox=False):
         return bbox_img[h1: h2]
 
 
-def bbox_from_df(df, frame_no, return_track_id=False):
+def bbox_from_df(df, frame_no, return_jersey_number=False):
     row = df[df['frame_id'] == frame_no].iloc[0]
     bbox = [row['x_camera'], row['y_camera'], row['box_w'], row['box_h']]
-    if return_track_id:
-        return bbox, row['track_id']
+    if return_jersey_number:
+        return bbox, row['jersey_number']
     return bbox

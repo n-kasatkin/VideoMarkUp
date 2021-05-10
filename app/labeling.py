@@ -17,9 +17,9 @@ def labeling(args):
     title(stage=Stage.LABELING)
 
     # Sidebar options
-    data_path, track_id, track_ids, frames = choose_data_and_track(
-        args.data_dir, args.output_dir)
-    n_rows, images_per_row, stride = choose_image_grid_params()
+    show_jersey_numbers, n_rows, images_per_row, stride = choose_image_grid_params()
+    data_path, track_id, track_ids, frames, meta = choose_data_and_track(
+        args.data_dir, args.output_dir, show_jersey_numbers=show_jersey_numbers)
     image_transforms = choose_image_transforms()
 
     # Frame
@@ -37,13 +37,13 @@ def labeling(args):
     # Images
     for row in range(n_rows):
         row_frame_no = frame_no + row * images_per_row * stride
-        show_images(row_frame_no, frames, track_sequences, N=images_per_row,
+        show_images(row_frame_no, frames, track_sequences, meta=meta, N=images_per_row,
                     stride=stride, image_transforms=image_transforms, frame_arrow=(row == 0))
 
     # Detailed view
     step = images_per_row // 2
     detailed_frame_no = choose_frame_no(len(frames) - 1, step=step)
-    show_images(detailed_frame_no, frames, track_sequences, N=images_per_row,
+    show_images(detailed_frame_no, frames, track_sequences, meta=meta, N=images_per_row,
                 stride=1, image_transforms=image_transforms)
 
     # Show track number stats
@@ -64,28 +64,34 @@ def show_track_stats(track_sequences):
     st.dataframe(stats.sort_values("count", ascending=False))
 
 
-def choose_data_and_track(data_dir, output_dir):
+def choose_data_and_track(data_dir, output_dir, show_jersey_numbers=False):
     data_path = choose_data(data_dir)
     track_id, track_ids = choose_track(data_path)
-    frames = load_images(track_id, data_path)
+    if show_jersey_numbers:
+        frames, meta = load_images(track_id, data_path, return_meta=True)
+    else:
+        frames = load_images(track_id, data_path)
+        meta = None
     save_canvas_button = st.sidebar.button(
         "Save the whole track canvas to disk")
     if save_canvas_button:
         image = canvas(frames, n=int(np.sqrt(len(frames))))
         cv2.imwrite(os.path.join(output_dir, "current_track.png"), image)
 
-    return data_path, track_id, track_ids, frames
+    return data_path, track_id, track_ids, frames, meta
 
 
 def choose_image_grid_params():
     st.sidebar.header("Image Grid params")
+    show_jursey_numbers = st.sidebar.checkbox(
+        "Show jersey numbers on images", False)
     n_rows = st.sidebar.slider(
         "Number of rows", min_value=1, max_value=10, value=5, step=1)
     images_per_row = st.sidebar.slider(
         "Number of images per row", min_value=9, max_value=49, value=19, step=10)
     stride = st.sidebar.slider(
         "Stride", min_value=1, max_value=25, value=5, step=1)
-    return n_rows, images_per_row, stride
+    return show_jursey_numbers, n_rows, images_per_row, stride
 
 
 def choose_image_transforms():
@@ -162,15 +168,19 @@ def adding_sequences(sequences, track_id):
 
 def get_track_ids(data_path):
     file = h5py.File(data_path, "r+")
-    track_ids = [int(i) for i in file.keys()]
+    track_ids = [int(i) for i in file.keys() if not i.endswith("_meta")]
     file.close()
     return track_ids
 
 
-def load_images(track_id, data_path):
+def load_images(track_id, data_path, return_meta=False):
     file = h5py.File(data_path, "r+")
     images = np.array(file[str(track_id)])
+    if return_meta:
+        meta = np.array(file[str(track_id) + "_meta"])
     file.close()
+    if return_meta:
+        return images, meta
     return images
 
 
@@ -197,7 +207,7 @@ def choose_frame_no(max_val, step=10):
     return frame_no
 
 
-def show_images(frame_no, frames, sequences, N=19, stride=1, image_transforms=None,
+def show_images(frame_no, frames, sequences, meta=None, N=19, stride=1, image_transforms=None,
                 show_caption=True, frame_arrow=True):
     hsize = wsize = 800 // N
 
@@ -226,7 +236,11 @@ def show_images(frame_no, frames, sequences, N=19, stride=1, image_transforms=No
         abs_no = _rel_no + frame_no
         if show_caption:
             number = str(sequences.get_number(abs_no) or "N")
-            return f"{abs_no}({number})" if rel_no != 0 or not frame_arrow else "↑"
+            # return f"{abs_no}({number})" if rel_no != 0 or not frame_arrow else "↑"
+            if meta is not None and 0 <= abs_no <= len(meta) and -1 <= meta[abs_no] <= 1001:
+                return f"{abs_no}({meta[abs_no]})" if rel_no != 0 or not frame_arrow else "↑"
+            else:
+                return f"{abs_no}" if rel_no != 0 or not frame_arrow else "↑"
 
         return "" if rel_no != 0 or not frame_arrow else "↑"
 
